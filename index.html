@@ -1,1 +1,1055 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UN QBank Exam Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap');
 
+  :root {
+    --un-blue: #009EDB;
+    --un-dark: #0A2B6C;
+    --un-navy: #1a1a2e;
+    --ink: #111827;
+    --muted: #6B7280;
+    --border: #E5E7EB;
+    --surface: #F9FAFB;
+    --white: #ffffff;
+    --green: #10B981;
+    --amber: #F59E0B;
+    --red: #EF4444;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: #F0F4F8;
+    color: var(--ink);
+    min-height: 100vh;
+  }
+
+  /* ── APP SHELL ── */
+  .app-header {
+    background: var(--un-dark);
+    color: white;
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    height: 64px;
+    border-bottom: 3px solid var(--un-blue);
+  }
+  .app-header .un-emblem {
+    width: 36px; height: 36px;
+    border: 2px solid var(--un-blue);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; font-weight: 600;
+    color: var(--un-blue);
+    letter-spacing: 0;
+    flex-shrink: 0;
+  }
+  .app-header h1 {
+    font-size: 1rem; font-weight: 600; letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .app-header .sub { font-size: 0.75rem; color: #93C5FD; margin-top: 1px; font-weight: 300; }
+
+  .app-body {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+
+  /* ── STEPS ── */
+  .step {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+    transition: box-shadow 0.2s;
+  }
+  .step.active { box-shadow: 0 4px 24px rgba(10,43,108,0.10); }
+  .step.done { opacity: 0.7; }
+
+  .step-head {
+    display: flex; align-items: center; gap: 1rem;
+    padding: 1.1rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .step-num {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--un-dark); color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.8rem; font-weight: 700; flex-shrink: 0;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .step.done .step-num { background: var(--green); }
+  .step-title { font-weight: 600; font-size: 0.95rem; }
+  .step-badge {
+    margin-left: auto;
+    font-size: 0.75rem;
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--green);
+    font-weight: 600;
+  }
+  .step-body { padding: 1.5rem; }
+
+  /* ── UPLOAD ── */
+  .upload-zone {
+    border: 2px dashed #CBD5E1;
+    border-radius: 10px;
+    padding: 2.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: #FAFBFF;
+  }
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--un-blue);
+    background: #EFF6FF;
+  }
+  .upload-zone input { display: none; }
+  .upload-icon {
+    font-size: 2.5rem; margin-bottom: 0.75rem;
+    display: block;
+  }
+  .upload-zone p { color: var(--muted); font-size: 0.9rem; margin-top: 0.4rem; }
+  .upload-zone strong { color: var(--un-dark); font-weight: 600; }
+
+  .file-info {
+    display: flex; align-items: center; gap: 1rem;
+    background: #F0FDF4;
+    border: 1px solid #BBF7D0;
+    border-radius: 8px;
+    padding: 0.9rem 1.2rem;
+  }
+  .file-info .fi-icon { font-size: 1.4rem; }
+  .file-info .fi-name { font-weight: 600; color: #065F46; font-size: 0.9rem; }
+  .file-info .fi-meta { color: #059669; font-size: 0.8rem; }
+
+  /* ── FORM ── */
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.2rem;
+  }
+  .form-grid .full { grid-column: 1 / -1; }
+
+  .field label {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--un-dark);
+    margin-bottom: 0.4rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+  .field input, .field select {
+    width: 100%;
+    padding: 0.65rem 0.9rem;
+    border: 1.5px solid var(--border);
+    border-radius: 7px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 0.92rem;
+    color: var(--ink);
+    background: white;
+    transition: border-color 0.15s;
+    appearance: none;
+  }
+  .field input:focus, .field select:focus {
+    outline: none;
+    border-color: var(--un-blue);
+    box-shadow: 0 0 0 3px rgba(0,158,219,0.12);
+  }
+  .field .hint {
+    font-size: 0.77rem;
+    color: var(--muted);
+    margin-top: 0.35rem;
+  }
+
+  .stats-bar {
+    display: flex; gap: 1.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.2rem;
+  }
+  .stat { text-align: center; }
+  .stat-n {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 1.5rem; font-weight: 600;
+    color: var(--un-dark);
+    display: block;
+  }
+  .stat-l { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+  /* ── BUTTON ── */
+  .btn {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    padding: 0.75rem 1.75rem;
+    border-radius: 8px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 0.92rem; font-weight: 600;
+    cursor: pointer; border: none;
+    transition: all 0.15s;
+    text-decoration: none;
+  }
+  .btn-primary {
+    background: var(--un-dark);
+    color: white;
+  }
+  .btn-primary:hover { background: #0d3580; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(10,43,108,0.3); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+  .btn-outline {
+    background: white;
+    color: var(--un-dark);
+    border: 1.5px solid var(--border);
+  }
+  .btn-outline:hover { border-color: var(--un-dark); }
+  .btn-blue { background: var(--un-blue); color: white; }
+  .btn-blue:hover { background: #0083b8; }
+  .btn-sm { padding: 0.5rem 1rem; font-size: 0.82rem; }
+
+  .btn-row { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; margin-top: 1.2rem; }
+
+  /* ── TABS ── */
+  .tab-bar {
+    display: flex; border-bottom: 2px solid var(--border);
+    margin-bottom: 1.5rem;
+  }
+  .tab {
+    padding: 0.7rem 1.25rem;
+    font-weight: 600; font-size: 0.9rem;
+    cursor: pointer; border: none; background: none;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    transition: color 0.15s;
+  }
+  .tab.active { color: var(--un-dark); border-bottom-color: var(--un-dark); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ── ERROR ── */
+  .alert {
+    padding: 0.9rem 1.2rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+  }
+  .alert-error { background: #FEF2F2; border: 1px solid #FECACA; color: #991B1B; }
+  .alert-info { background: #EFF6FF; border: 1px solid #BFDBFE; color: #1E40AF; }
+
+  /* ══════════════════════════════════════
+     EXAM DOCUMENT STYLES
+     Matches the UN written test format
+  ══════════════════════════════════════ */
+  #exam-output, #answer-output {
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 12pt;
+    color: #000;
+    line-height: 1.5;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 2rem;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+  }
+
+  .exam-header-org {
+    font-weight: bold;
+    font-size: 13pt;
+    margin-bottom: 4px;
+  }
+  .exam-date-line {
+    margin-bottom: 1rem;
+    font-size: 11pt;
+  }
+  .exam-title-block {
+    text-align: center;
+    margin-bottom: 0.5rem;
+  }
+  .exam-title-block .exam-title {
+    font-size: 14pt;
+    font-weight: bold;
+    display: block;
+  }
+  .exam-title-block .exam-role {
+    font-size: 12pt;
+    font-weight: bold;
+    display: block;
+    margin-top: 4px;
+  }
+  .exam-title-block .exam-station {
+    font-size: 12pt;
+    display: block;
+    margin-top: 2px;
+  }
+  .exam-meta {
+    display: flex; gap: 2rem;
+    justify-content: center;
+    margin: 0.6rem 0 0.5rem;
+    font-weight: bold; font-size: 12pt;
+  }
+  .exam-divider {
+    border: none;
+    border-top: 1.5px solid #000;
+    margin: 0.6rem 0;
+  }
+  .exam-confidential {
+    font-weight: bold;
+    font-size: 12pt;
+    margin-bottom: 0.75rem;
+  }
+  .exam-instructions {
+    margin-bottom: 1rem;
+    font-size: 11pt;
+  }
+  .exam-instructions p { margin-bottom: 0.3rem; }
+  .exam-instructions ul {
+    margin: 0.3rem 0 0.3rem 1.4rem;
+  }
+  .exam-instructions li { margin-bottom: 0.25rem; }
+  .exam-divider2 {
+    border: none;
+    border-top: 1px solid #555;
+    margin: 0.75rem 0 1rem;
+  }
+
+  .exam-question {
+    margin-bottom: 1.2rem;
+    page-break-inside: avoid;
+  }
+  .exam-q-text {
+    font-weight: bold;
+    margin-bottom: 0.4rem;
+    line-height: 1.5;
+  }
+  .exam-q-num { font-weight: bold; }
+  .exam-choice {
+    margin: 0.2rem 0 0.2rem 1.5rem;
+    line-height: 1.4;
+  }
+  .exam-choice-letter { font-weight: bold; }
+
+  .exam-footer-divider {
+    border: none;
+    border-top: 1px solid #999;
+    margin: 2rem 0 0.5rem;
+  }
+  .exam-footer-text {
+    font-size: 10pt;
+    color: #555;
+    text-align: center;
+    font-style: italic;
+  }
+
+  /* Answer sheet */
+  .answer-sheet-title {
+    text-align: center;
+    font-size: 14pt;
+    font-weight: bold;
+    margin: 1rem 0 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .answer-candidate-block {
+    border: 1px solid #000;
+    border-radius: 4px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1.25rem;
+    font-size: 11pt;
+  }
+  .answer-candidate-block .field-line {
+    display: flex; align-items: center; gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid #888;
+    padding-bottom: 0.3rem;
+  }
+  .answer-candidate-block .field-line:last-child { margin-bottom: 0; border-bottom: none; padding-bottom: 0; }
+  .answer-candidate-block .field-label { font-weight: bold; white-space: nowrap; min-width: 100px; }
+  .answer-candidate-block .field-line-spacer { flex: 1; }
+
+  .answer-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.4rem 1rem;
+  }
+  .answer-row {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.3rem 0.4rem;
+    border-bottom: 1px solid #E5E7EB;
+  }
+  .answer-row:nth-child(even) { background: #F9FAFB; }
+  .answer-qnum {
+    font-weight: bold;
+    font-size: 10pt;
+    min-width: 24px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .answer-bubbles {
+    display: flex; gap: 4px;
+  }
+  .answer-bubble {
+    width: 20px; height: 20px;
+    border: 1.5px solid #000;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8.5pt; font-weight: bold;
+    cursor: default;
+  }
+
+  /* KEY section on answer sheet */
+  .answer-key-section {
+    margin-top: 1.5rem;
+    border-top: 2px solid var(--un-dark);
+    padding-top: 1rem;
+  }
+  .answer-key-title {
+    font-size: 11pt; font-weight: bold;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    margin-bottom: 0.75rem;
+    background: var(--un-dark); color: white;
+    padding: 0.4rem 0.75rem;
+    display: inline-block;
+  }
+  .key-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.35rem 0.75rem;
+    font-size: 10pt;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .key-item {
+    display: flex; gap: 0.4rem;
+    align-items: center;
+    padding: 0.2rem 0.3rem;
+    border-bottom: 1px solid #eee;
+  }
+  .key-num { min-width: 24px; color: var(--muted); font-size: 9pt; }
+  .key-ans { font-weight: 700; color: var(--un-dark); font-size: 11pt; }
+
+  /* ── PRINT ── */
+  @media print {
+    body { background: white; }
+    .no-print { display: none !important; }
+    #exam-output, #answer-output {
+      border: none; padding: 0; max-width: none;
+    }
+    .exam-question { page-break-inside: avoid; }
+    @page { margin: 1in; }
+  }
+
+  .section-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 0.75rem;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .hidden { display: none !important; }
+
+  select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236B7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 2rem; }
+</style>
+</head>
+<body>
+
+<header class="app-header no-print">
+  <div class="un-emblem">UN</div>
+  <div>
+    <div class="sub">OFFICE OF HUMAN RESOURCES / MEDICAL SERVICES</div>
+    <h1>Written Test Generator — QBank</h1>
+  </div>
+</header>
+
+<div class="app-body no-print">
+
+  <!-- STEP 1: UPLOAD -->
+  <div class="step active" id="step1">
+    <div class="step-head">
+      <div class="step-num">1</div>
+      <div class="step-title">Upload QBank Excel File</div>
+      <div class="step-badge hidden" id="upload-badge">✓ Loaded</div>
+    </div>
+    <div class="step-body">
+      <div class="upload-zone" id="upload-zone">
+        <input type="file" id="file-input" accept=".xlsx,.xls">
+        <span class="upload-icon">📊</span>
+        <strong>Click to upload or drag &amp; drop</strong>
+        <p>Master_QBank_Combined.xlsx — or any QBank file with the standard format</p>
+      </div>
+      <div id="file-info-block" class="hidden" style="margin-top:1rem;">
+        <div class="file-info">
+          <span class="fi-icon">✅</span>
+          <div>
+            <div class="fi-name" id="fi-name"></div>
+            <div class="fi-meta" id="fi-meta"></div>
+          </div>
+        </div>
+      </div>
+      <div id="upload-error" class="alert alert-error hidden" style="margin-top:1rem;"></div>
+    </div>
+  </div>
+
+  <!-- STEP 2: CONFIGURE -->
+  <div class="step" id="step2">
+    <div class="step-head">
+      <div class="step-num">2</div>
+      <div class="step-title">Configure Exam</div>
+    </div>
+    <div class="step-body">
+
+      <div id="qbank-stats" class="stats-bar hidden">
+        <div class="stat"><span class="stat-n" id="stat-total">—</span><span class="stat-l">Total Qs</span></div>
+        <div class="stat"><span class="stat-n" id="stat-doctor">—</span><span class="stat-l">Doctor</span></div>
+        <div class="stat"><span class="stat-n" id="stat-officer">—</span><span class="stat-l">Med Officer</span></div>
+        <div class="stat"><span class="stat-n" id="stat-cats">—</span><span class="stat-l">Categories</span></div>
+        <div class="stat"><span class="stat-n" id="stat-avail">—</span><span class="stat-l">Available*</span></div>
+      </div>
+
+      <div class="section-label">Exam Identity</div>
+      <div class="form-grid" style="margin-bottom:1.5rem;">
+        <div class="field">
+          <label>Duty Station / City</label>
+          <input type="text" id="cfg-station" placeholder="e.g. Galkayo" value="">
+        </div>
+        <div class="field">
+          <label>Country</label>
+          <input type="text" id="cfg-country" placeholder="e.g. Somalia" value="">
+        </div>
+        <div class="field">
+          <label>Role / Position Title</label>
+          <input type="text" id="cfg-role-title" placeholder="e.g. UN Clinic Physician" value="">
+        </div>
+        <div class="field">
+          <label>IPSA Level</label>
+          <select id="cfg-ipsa">
+            <option value="9">IPSA 9</option>
+            <option value="8">IPSA 8</option>
+            <option value="10">IPSA 10</option>
+            <option value="7">IPSA 7</option>
+            <option value="">Other / Leave blank</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Exam Date</label>
+          <input type="date" id="cfg-date">
+        </div>
+        <div class="field">
+          <label>Duration</label>
+          <select id="cfg-duration">
+            <option value="2 HOURS">2 Hours</option>
+            <option value="1 HOUR">1 Hour</option>
+            <option value="90 MINUTES">90 Minutes</option>
+            <option value="3 HOURS">3 Hours</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="section-label">Question Selection</div>
+      <div class="form-grid" style="margin-bottom:1.5rem;">
+        <div class="field">
+          <label>Filter by Role</label>
+          <select id="cfg-filter-role">
+            <option value="all">All roles (Doctor + Medical Officer)</option>
+            <option value="Doctor">Doctor only</option>
+            <option value="Medical Officer">Medical Officer only</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Language</label>
+          <select id="cfg-lang">
+            <option value="EN">English</option>
+            <option value="FR">French</option>
+          </select>
+          <div class="hint">French will only include questions with FR translations.</div>
+        </div>
+        <div class="field">
+          <label>Number of Questions</label>
+          <input type="number" id="cfg-nq" value="30" min="5" max="200">
+          <div class="hint" id="nq-hint"></div>
+        </div>
+        <div class="field">
+          <label>Include Answer Key on Answer Sheet</label>
+          <select id="cfg-showkey">
+            <option value="yes">Yes — include answer key (for examiner copy)</option>
+            <option value="no">No — answer sheet only</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="gen-error" class="alert alert-error hidden"></div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="btn-generate" disabled>
+          ⚡ Generate Exam
+        </button>
+        <span style="font-size:0.82rem;color:var(--muted);">Questions are randomly selected each time.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3: OUTPUT -->
+  <div class="step hidden" id="step3">
+    <div class="step-head">
+      <div class="step-num">3</div>
+      <div class="step-title">Generated Exam</div>
+    </div>
+    <div class="step-body">
+
+      <div class="alert alert-info" id="gen-summary" style="margin-bottom:1rem;"></div>
+
+      <div class="btn-row" style="margin-bottom:1.25rem;">
+        <button class="btn btn-primary" onclick="printExam()">🖨️ Print / Save Exam</button>
+        <button class="btn btn-blue" onclick="printAnswerSheet()">🖨️ Print / Save Answer Sheet</button>
+        <button class="btn btn-outline" onclick="regenerate()">🔀 Regenerate (new random set)</button>
+        <button class="btn btn-outline btn-sm" onclick="backToConfig()">← Back to Config</button>
+      </div>
+
+      <div class="tab-bar">
+        <button class="tab active" onclick="showTab('exam')">📄 Exam Paper</button>
+        <button class="tab" onclick="showTab('answer')">📋 Answer Sheet</button>
+      </div>
+
+      <div class="tab-panel active" id="tab-exam">
+        <div id="exam-output"></div>
+      </div>
+      <div class="tab-panel" id="tab-answer">
+        <div id="answer-output"></div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- /app-body -->
+
+<!-- PRINT FRAMES (hidden, used for printing) -->
+<div id="print-area" class="hidden"></div>
+
+<script>
+// ─────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────
+let qbankData = [];
+let generatedQuestions = [];
+let generatedAnswers = [];
+
+// ─────────────────────────────────────────
+//  UPLOAD
+// ─────────────────────────────────────────
+const uploadZone = document.getElementById('upload-zone');
+const fileInput  = document.getElementById('file-input');
+
+uploadZone.addEventListener('click', () => fileInput.click());
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault(); uploadZone.classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+
+function handleFile(file) {
+  const err = document.getElementById('upload-error');
+  err.classList.add('hidden');
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'binary' });
+
+      // Find QBank sheet
+      const sheetName = wb.SheetNames.find(n => n.toLowerCase().includes('qbank')) || wb.SheetNames[0];
+      const ws = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+      if (!rows.length || !rows[0].hasOwnProperty('Question_EN')) {
+        throw new Error('Could not find expected columns. Make sure you are uploading the correct QBank file (needs Question_EN, A_EN, B_EN, C_EN, D_EN, Answer columns).');
+      }
+
+      qbankData = rows.filter(r => r.Role && (r.Question_EN || r.Question_FR));
+
+      // Show file info
+      document.getElementById('fi-name').textContent = file.name;
+      document.getElementById('fi-meta').textContent = `${qbankData.length} questions loaded from sheet "${sheetName}"`;
+      document.getElementById('file-info-block').classList.remove('hidden');
+      document.getElementById('upload-badge').classList.remove('hidden');
+
+      // Update stats
+      updateStats();
+
+      // Activate step 2
+      document.getElementById('step1').classList.add('done');
+      document.getElementById('step2').classList.add('active');
+      document.getElementById('btn-generate').disabled = false;
+
+    } catch(ex) {
+      err.textContent = '⚠️ ' + ex.message;
+      err.classList.remove('hidden');
+    }
+  };
+  reader.readAsBinaryString(file);
+}
+
+// ─────────────────────────────────────────
+//  STATS & FILTER HELPERS
+// ─────────────────────────────────────────
+function updateStats() {
+  const lang = document.getElementById('cfg-lang').value;
+  const roleFilter = document.getElementById('cfg-filter-role').value;
+
+  const doctors  = qbankData.filter(r => r.Role === 'Doctor').length;
+  const officers = qbankData.filter(r => r.Role === 'Medical Officer').length;
+  const cats     = new Set(qbankData.map(r => r.Category)).size;
+  const avail    = getFilteredQuestions().length;
+
+  document.getElementById('stat-total').textContent   = qbankData.length;
+  document.getElementById('stat-doctor').textContent  = doctors;
+  document.getElementById('stat-officer').textContent = officers;
+  document.getElementById('stat-cats').textContent    = cats;
+  document.getElementById('stat-avail').textContent   = avail;
+  document.getElementById('qbank-stats').classList.remove('hidden');
+
+  document.getElementById('nq-hint').textContent = `Max available with current filters: ${avail}`;
+}
+
+function getFilteredQuestions() {
+  const lang       = document.getElementById('cfg-lang').value;
+  const roleFilter = document.getElementById('cfg-filter-role').value;
+
+  return qbankData.filter(r => {
+    // Role filter
+    if (roleFilter !== 'all' && r.Role !== roleFilter) return false;
+    // Language: must have question text in chosen language and all 4 choices
+    if (lang === 'EN') {
+      return r.Question_EN && r.A_EN && r.B_EN && r.C_EN && r.D_EN;
+    } else {
+      return r.Question_FR && r.A_FR && r.B_FR && r.C_FR && r.D_FR;
+    }
+  });
+}
+
+// Re-calc stats when filters change
+['cfg-lang','cfg-filter-role'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => {
+    if (qbankData.length) updateStats();
+  });
+});
+
+// Set default date
+document.getElementById('cfg-date').valueAsDate = new Date();
+
+// ─────────────────────────────────────────
+//  GENERATE
+// ─────────────────────────────────────────
+document.getElementById('btn-generate').addEventListener('click', generate);
+
+function generate() {
+  const errEl = document.getElementById('gen-error');
+  errEl.classList.add('hidden');
+
+  const n       = parseInt(document.getElementById('cfg-nq').value) || 30;
+  const lang    = document.getElementById('cfg-lang').value;
+  const station = document.getElementById('cfg-station').value.trim() || 'Duty Station';
+  const country = document.getElementById('cfg-country').value.trim();
+  const roleTitle = document.getElementById('cfg-role-title').value.trim() || 'UN Clinic Physician';
+  const ipsa    = document.getElementById('cfg-ipsa').value;
+  const rawDate = document.getElementById('cfg-date').value;
+  const duration = document.getElementById('cfg-duration').value;
+
+  const pool = getFilteredQuestions();
+  if (pool.length === 0) {
+    errEl.textContent = '⚠️ No questions match your current filters. Try changing the role or language filter.';
+    errEl.classList.remove('hidden'); return;
+  }
+  if (n > pool.length) {
+    errEl.textContent = `⚠️ You requested ${n} questions but only ${pool.length} are available with your current filters. Reduce the number or change filters.`;
+    errEl.classList.remove('hidden'); return;
+  }
+
+  // Random sample without replacement
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  generatedQuestions = shuffled.slice(0, n);
+  generatedAnswers   = generatedQuestions.map(q => q.Answer || '?');
+
+  // Format date nicely
+  let displayDate = '';
+  if (rawDate) {
+    const d = new Date(rawDate + 'T12:00:00');
+    displayDate = d.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+  }
+
+  const locationLine = [station, country].filter(Boolean).join(', ');
+  const showKey = document.getElementById('cfg-showkey').value === 'yes';
+
+  // Build exam HTML
+  document.getElementById('exam-output').innerHTML   = buildExamHTML(generatedQuestions, lang, station, locationLine, roleTitle, ipsa, displayDate, duration);
+  document.getElementById('answer-output').innerHTML = buildAnswerSheetHTML(generatedQuestions, generatedAnswers, lang, station, locationLine, roleTitle, ipsa, displayDate, showKey);
+
+  // Summary
+  document.getElementById('gen-summary').textContent =
+    `✓ Generated ${n} questions (${lang === 'EN' ? 'English' : 'French'}) for ${locationLine}${ipsa ? ' — IPSA ' + ipsa : ''}. Each regeneration draws a new random set.`;
+
+  document.getElementById('step3').classList.remove('hidden');
+  document.getElementById('step3').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function regenerate() { generate(); }
+function backToConfig() {
+  document.getElementById('step3').classList.add('hidden');
+  document.getElementById('step2').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ─────────────────────────────────────────
+//  BUILD EXAM HTML
+// ─────────────────────────────────────────
+function buildExamHTML(questions, lang, station, locationLine, roleTitle, ipsa, displayDate, duration) {
+  const qField    = lang === 'EN' ? 'Question_EN' : 'Question_FR';
+  const choices   = lang === 'EN'
+    ? [['A','A_EN'],['B','B_EN'],['C','C_EN'],['D','D_EN']]
+    : [['A','A_FR'],['B','B_FR'],['C','C_FR'],['D','D_FR']];
+
+  const n = questions.length;
+
+  let html = `
+    <div class="exam-header-org">United Nations Development Programme</div>
+    <div class="exam-date-line"><strong>Date: </strong>${displayDate}</div>
+    <div class="exam-title-block">
+      <span class="exam-title">WRITTEN TEST QUESTIONS</span>
+      <span class="exam-role">${escH(roleTitle)}</span>
+      <span class="exam-station">${escH(locationLine)}</span>
+    </div>
+    <div class="exam-meta">
+      <span>DURATION: ${escH(duration)}</span>
+      ${ipsa ? `<span>IPSA ${escH(ipsa)}</span>` : ''}
+    </div>
+    <hr class="exam-divider">
+    <div class="exam-confidential">STRICTLY CONFIDENTIAL</div>
+    <div class="exam-instructions">
+      <p>Please read the instructions carefully before beginning the test:</p>
+      <ul>
+        <li>The time allocated is <strong>${escH(duration.toLowerCase())}</strong>. It is meant to ascertain your technical skills written within tight parameters.</li>
+        <li>You are encouraged to ensure you attempt all the questions to the best of your ability.</li>
+        <li>Total number of points for the exam: ${n}.</li>
+        <li>Points per question: ${(100/n).toFixed(1)}.</li>
+        <li>Clarification on document and tool use: Candidates are not permitted to consult any documents or use AI tools during the test.</li>
+      </ul>
+    </div>
+    <hr class="exam-divider2">
+  `;
+
+  questions.forEach((q, i) => {
+    html += `<div class="exam-question">`;
+    html += `<div class="exam-q-text"><span class="exam-q-num">${i+1}. </span>${escH(q[qField] || '')}</div>`;
+    choices.forEach(([letter, field]) => {
+      if (q[field]) {
+        html += `<div class="exam-choice"><span class="exam-choice-letter">${letter}.&nbsp;&nbsp;</span>${escH(q[field])}</div>`;
+      }
+    });
+    html += `</div>`;
+  });
+
+  const footerLabel = `UN Clinic ${station}${ipsa ? ' \u2013 IPSA' + ipsa : ''} \u2013 Written Test`;
+  html += `
+    <hr class="exam-footer-divider">
+    <div class="exam-footer-text">${escH(footerLabel)}</div>
+  `;
+
+  return html;
+}
+
+// ─────────────────────────────────────────
+//  BUILD ANSWER SHEET HTML
+// ─────────────────────────────────────────
+function buildAnswerSheetHTML(questions, answers, lang, station, locationLine, roleTitle, ipsa, displayDate, showKey) {
+  const n = questions.length;
+
+  let html = `
+    <div class="exam-header-org">United Nations Development Programme</div>
+    <div class="exam-date-line"><strong>Date: </strong>${displayDate}</div>
+    <div class="exam-title-block">
+      <span class="exam-title">WRITTEN TEST — ANSWER SHEET</span>
+      <span class="exam-role">${escH(roleTitle)}</span>
+      <span class="exam-station">${escH(locationLine)}</span>
+    </div>
+    ${ipsa ? `<div class="exam-meta"><span>IPSA ${escH(ipsa)}</span></div>` : ''}
+    <hr class="exam-divider">
+
+    <div class="answer-candidate-block">
+      <div class="field-line">
+        <span class="field-label">Candidate Name:</span>
+        <span class="field-line-spacer"></span>
+      </div>
+      <div class="field-line">
+        <span class="field-label">Position Applied:</span>
+        <span class="field-line-spacer"></span>
+      </div>
+      <div style="display:flex;gap:2rem;">
+        <div class="field-line" style="flex:1;">
+          <span class="field-label">Date:</span>
+          <span class="field-line-spacer"></span>
+        </div>
+        <div class="field-line" style="flex:1;">
+          <span class="field-label">Score: &nbsp;&nbsp;&nbsp;&nbsp; / ${n}</span>
+          <span class="field-line-spacer"></span>
+        </div>
+      </div>
+    </div>
+
+    <p style="font-size:10pt;margin-bottom:0.75rem;font-style:italic;">
+      Circle the letter corresponding to your answer for each question. Use ink. Do not make stray marks.
+    </p>
+
+    <div class="answer-grid">
+  `;
+
+  for (let i = 0; i < n; i++) {
+    html += `
+      <div class="answer-row">
+        <span class="answer-qnum">${String(i+1).padStart(2,'0')}</span>
+        <div class="answer-bubbles">
+          <div class="answer-bubble">A</div>
+          <div class="answer-bubble">B</div>
+          <div class="answer-bubble">C</div>
+          <div class="answer-bubble">D</div>
+        </div>
+      </div>
+    `;
+  }
+
+  html += `</div>`; // /answer-grid
+
+  // Answer key (examiner copy)
+  if (showKey) {
+    html += `
+      <div class="answer-key-section">
+        <div class="answer-key-title">Answer Key — Examiner Copy</div>
+        <div class="key-grid">
+    `;
+    answers.forEach((ans, i) => {
+      html += `
+        <div class="key-item">
+          <span class="key-num">${i+1}.</span>
+          <span class="key-ans">${escH(String(ans).toUpperCase())}</span>
+        </div>
+      `;
+    });
+    html += `</div></div>`;
+  }
+
+  const footerLabel = `UN Clinic ${station}${ipsa ? ' \u2013 IPSA' + ipsa : ''} \u2013 Answer Sheet`;
+  html += `
+    <hr class="exam-footer-divider">
+    <div class="exam-footer-text">${escH(footerLabel)}</div>
+  `;
+
+  return html;
+}
+
+// ─────────────────────────────────────────
+//  PRINT
+// ─────────────────────────────────────────
+function printExam() {
+  printContent(document.getElementById('exam-output').innerHTML, 'Exam');
+}
+function printAnswerSheet() {
+  printContent(document.getElementById('answer-output').innerHTML, 'Answer Sheet');
+}
+
+function printContent(innerHtml, title) {
+  const win = window.open('', '_blank', 'width=900,height=800');
+  win.document.write(`
+    <!DOCTYPE html><html><head>
+    <title>UN Written Test — ${title}</title>
+    <style>
+      body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; color: #000; margin: 1in; line-height: 1.5; }
+      .exam-header-org { font-weight: bold; font-size: 13pt; margin-bottom: 4px; }
+      .exam-date-line { margin-bottom: 1rem; font-size: 11pt; }
+      .exam-title-block { text-align: center; margin-bottom: 0.5rem; }
+      .exam-title { font-size: 14pt; font-weight: bold; display: block; }
+      .exam-role { font-size: 12pt; font-weight: bold; display: block; margin-top: 4px; }
+      .exam-station { font-size: 12pt; display: block; margin-top: 2px; }
+      .exam-meta { display: flex; gap: 2rem; justify-content: center; margin: 0.6rem 0 0.5rem; font-weight: bold; font-size: 12pt; }
+      .exam-divider { border: none; border-top: 1.5px solid #000; margin: 0.6rem 0; }
+      .exam-divider2 { border: none; border-top: 1px solid #555; margin: 0.75rem 0 1rem; }
+      .exam-confidential { font-weight: bold; font-size: 12pt; margin-bottom: 0.75rem; }
+      .exam-instructions { margin-bottom: 1rem; font-size: 11pt; }
+      .exam-instructions p { margin-bottom: 0.3rem; }
+      .exam-instructions ul { margin: 0.3rem 0 0.3rem 1.4rem; }
+      .exam-instructions li { margin-bottom: 0.25rem; }
+      .exam-question { margin-bottom: 1.2rem; page-break-inside: avoid; }
+      .exam-q-text { font-weight: bold; margin-bottom: 0.4rem; line-height: 1.5; }
+      .exam-q-num { font-weight: bold; }
+      .exam-choice { margin: 0.2rem 0 0.2rem 1.5rem; line-height: 1.4; }
+      .exam-choice-letter { font-weight: bold; }
+      .exam-footer-divider { border: none; border-top: 1px solid #999; margin: 2rem 0 0.5rem; }
+      .exam-footer-text { font-size: 10pt; color: #555; text-align: center; font-style: italic; }
+      .answer-sheet-title { text-align: center; font-size: 14pt; font-weight: bold; margin: 1rem 0 0.5rem; text-transform: uppercase; }
+      .answer-candidate-block { border: 1px solid #000; border-radius: 4px; padding: 0.75rem 1rem; margin-bottom: 1.25rem; font-size: 11pt; }
+      .field-line { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; border-bottom: 1px solid #888; padding-bottom: 0.3rem; }
+      .field-line:last-child { margin-bottom: 0; border-bottom: none; padding-bottom: 0; }
+      .field-label { font-weight: bold; white-space: nowrap; min-width: 100px; }
+      .field-line-spacer { flex: 1; }
+      .answer-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4rem 1rem; }
+      .answer-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.4rem; border-bottom: 1px solid #E5E7EB; }
+      .answer-row:nth-child(even) { background: #F9FAFB; }
+      .answer-qnum { font-weight: bold; font-size: 10pt; min-width: 24px; font-family: monospace; }
+      .answer-bubbles { display: flex; gap: 4px; }
+      .answer-bubble { width: 20px; height: 20px; border: 1.5px solid #000; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 8.5pt; font-weight: bold; }
+      .answer-key-section { margin-top: 1.5rem; border-top: 2px solid #0A2B6C; padding-top: 1rem; }
+      .answer-key-title { font-size: 11pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem; background: #0A2B6C; color: white; padding: 0.4rem 0.75rem; display: inline-block; }
+      .key-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.35rem 0.75rem; font-size: 10pt; font-family: monospace; }
+      .key-item { display: flex; gap: 0.4rem; align-items: center; padding: 0.2rem 0.3rem; border-bottom: 1px solid #eee; }
+      .key-num { min-width: 24px; color: #6B7280; font-size: 9pt; }
+      .key-ans { font-weight: 700; color: #0A2B6C; font-size: 11pt; }
+      @page { margin: 1in; }
+      @media print { body { margin: 0; } }
+    </style>
+    </head><body>
+    ${innerHtml}
+    </body></html>
+  `);
+  win.document.close();
+  setTimeout(() => { win.focus(); win.print(); }, 400);
+}
+
+// ─────────────────────────────────────────
+//  TABS
+// ─────────────────────────────────────────
+function showTab(id) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['exam','answer'][i] === id));
+  document.querySelectorAll('.tab-panel').forEach((p,i) => p.classList.toggle('active', ['tab-exam','tab-answer'][i] === 'tab-'+id));
+}
+
+// ─────────────────────────────────────────
+//  UTILS
+// ─────────────────────────────────────────
+function escH(str) {
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
